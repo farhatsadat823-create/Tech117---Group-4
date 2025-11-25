@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>T2T</title>
+  <title>Tactile-to-Text Communication Device (T2T)</title>
 
   <!-- Prism.js syntax highlighting -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
@@ -25,7 +25,7 @@
       <li><a href="#information">Project Information</a></li>
       <li><a href="#introduction">Introduction</a></li>
       <li><a href="#circuit-diagram">Circuit</a></li>
-      <li><a href="#environment">Environment</a></li>
+      <li><a href="#sustainability">Sustainability</a></li>
       <li><a href="#bom">BoM</a></li>
       <li><a href="#prototype">Prototype</a></li>
       <li><a href="#code">Code</a></li>
@@ -35,38 +35,40 @@
   </nav>
 
 
-  <h1 id="top">Collision Warning System</h1>
+  <h1 id="top">Tactile-to-Text Communication Device (T2T)</h1>
 
   <section id="information">
     <h2>Project Information</h2>
     <p><strong>Course:</strong> TECH 117 (Computer Engineering Technology, Fall 2025)</p>
     <p><strong>Instructor:</strong> Ph.D. Ana Rodrigues</p>
-    <p><strong>Team Members:</strong></p>
+    <p><strong>Group 4 - Team Members:</strong></p>
     <ul>
-      <li>...</li>
-      <li>...</li>
-      <li>...</li>
+      <li>Thuy Duong Nguyen</li>
+      <li>Farhat Sadat</li>
       <li>...</li>
     </ul>
   </section>
 
   <section id="introduction">
     <h2>Introduction</h2>
-    <p>This project uses an <strong>Arduino Uno</strong>, an <strong>HC-SR04 ultrasonic sensor</strong>, a
-      <strong>passive buzzer</strong>, and <strong>red/yellow/green LEDs</strong> to provide proximity-based
-      alerts, similar to automotive collision detection systems.
+    <p>People with <strong>visual impairments</strong> often face significant challenges in communication.
+      To interact with others, they rely on a tactile reading and writing system called <strong>Braille</strong> to spell out words. 
+      However, not everyone is able to read Braille. This creates a barrier between individuals with disabilities and the general population.<p>
     </p>
+      The proposed solution is a <strong>button-based input device connected to a display</strong>, which shows each letter as it is entered through the buttons, forming words.</p>
+    </p>
+      The prototype is build using an  <strong>Arduino Uno</strong>, black/blue/green/red/yellow <strong>pushbuttons</strong>, an <strong>LCD display screen</strong>, and a <strong>passive buzzer</strong>.</p>
   </section>
 
   <section id="circuit-diagram">
     <h2>Circuit Diagram</h2>
     <p>The ultrasonic sensor measures distance; the Arduino activates LEDs and the buzzer according to distance
       thresholds.</p>
-    <img src="collision-warning-system-Arduino.jpg" alt="Arduino collision warning system">
-  </section>
+    <img src="1-bfc8d425.jpg" alt="Arduino Braille system"> 
+    </section>
 
-  <section id="environment">
-    <h2>Environmental Impact Assessment</h2>
+  <section id="systainability">
+    <h2>Sustainability Assessment</h2>
     <ul>
       <li><strong>Materials:</strong> The Arduino Uno is RoHS and WEEE compliant, limiting hazardous substances.
       </li>
@@ -80,6 +82,7 @@
 
   <section id="bom">
     <h2>Bill of Materials (BoM)</h2>
+    <p>The price may vary due to sales or promotions.</p>
     <table>
       <thead>
         <tr>
@@ -94,58 +97,87 @@
         <tr>
           <td>Arduino Uno Rev3</td>
           <td>1</td>
-          <td>$27.60</td>
-          <td>$27.60</td>
-          <td><a href="https://store-usa.arduino.cc/products/arduino-uno-rev3">Arduino Store</a></td>
+          <td>$5.03</td>
+          <td>$5.03</td>
+          <td><a href="https://www.aliexpress.com/item/1005007335850929.html">AliExpress</a></td>
         </tr>
         <tr>
-          <td>HC-SR04 Ultrasonic Sensor</td>
-          <td>1</td>
-          <td>$3.95</td>
-          <td>$3.95</td>
-          <td><a href="https://www.adafruit.com/product/3942">Adafruit</a></td>
+          <td>Pushbuttons</td>
+          <td>10</td>
+          <td>$0.33</td>
+          <td>$3.27</td>
+          <td><a href="https://www.aliexpress.com/item/1005007228826301.html">AliExpress</a></td>
         </tr>
         <tr>
           <td>Passive Buzzer</td>
           <td>1</td>
-          <td>$0.95</td>
-          <td>$0.95</td>
-          <td><a href="https://www.sparkfun.com/passive-buzzer-module.html">SparkFun</a></td>
+          <td>$0.16</td>
+          <td>$0.16</td>
+          <td><a href="https://www.aliexpress.com/item/1005009614597817.html">AliExpress</a></td>
         </tr>
         <tr>
-          <td>LEDs (Red, Yellow, Green)</td>
-          <td>3</td>
-          <td>$0.20</td>
-          <td>$0.60</td>
-          <td>Adafruit</td>
+          <td>LCD 16x2</td>
+          <td>1</td>
+          <td>$5.24</td>
+          <td>$5.24</td>
+          <td><a href="https://www.aliexpress.com/item/1005006291057456.html">AliExpress</a></td>
+        </tr>
+        <tr>
+          <td>10 kΩ Resistors</td>
+          <td>1</td>
+          <td>$0.04</td>
+          <td>$0.40</td>
+          <td><a href="https://www.aliexpress.com/item/1005001969271262.html">AliExpress</a></td>
         </tr>
         <tr>
           <td>220 Ω Resistors</td>
-          <td>3</td>
+          <td>1</td>
           <td>$0.03</td>
-          <td>$0.09</td>
-          <td>Adafruit</td>
+          <td>$0.03</td>
+          <td><a href="https://www.aliexpress.com/item/1005001969271262.html">AliExpress</a></td>
         </tr>
         <tr>
-          <td>Breadboard</td>
+          <td>100 Ω Resistors</td>
+          <td>1</td>
+          <td>$0.03</td>
+          <td>$0.03</td>
+          <td><a href="https://www.aliexpress.com/item/1005001969271262.html">AliExpress</a></td>
+        </tr>
+        <tr>
+          <td>10 kΩ Potentiometer</td>
+          <td>1</td>
+          <td>$0.40</td>
+          <td>$0.40</td>
+          <td><a href="https://www.aliexpress.com/item/1005001493754293.html">AliExpress</a></td>
+        </tr>
+        <tr>
+          <td>830 pins Breadboard</td>
           <td>1</td>
           <td>$4.95</td>
           <td>$4.95</td>
-          <td><a href="https://www.adafruit.com/product/64">Adafruit</a></td>
+          <td><a href="https://www.aliexpress.com/item/1005003647931024.html">AliExpress</a></td>
         </tr>
         <tr>
-          <td>Jumper Wires</td>
-          <td>1 set</td>
-          <td>$3.50</td>
-          <td>$3.50</td>
-          <td><a href="https://www.sparkfun.com/jumper-wires-standard-7-m-m-30-awg-30-pack.html">SparkFun</a>
+          <td>170 pins Breadboard</td>
+          <td>2</td>
+          <td>$1.41</td>
+          <td>$2.82</td>
+          <td><a href="https://www.aliexpress.com/item/1005003620760303.html">AliExpress</a>
           </td>
+        <tr>
+          <td>Jumper Wires</td>
+          <td>1 set of 40</td>
+          <td>$2.99</td>
+          <td>$2.99</td>
+          <td><a href="https://www.aliexpress.com/item/4000203371860.html">AliExpress</a>
+          </td>
+          
         </tr>
       </tbody>
       <tfoot>
         <tr>
           <td colspan="3">Estimated Total</td>
-          <td>$41.64</td>
+          <td>$25.32</td>
           <td>—</td>
         </tr>
       </tfoot>
