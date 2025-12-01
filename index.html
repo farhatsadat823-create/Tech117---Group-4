@@ -62,8 +62,7 @@
 
   <section id="circuit-diagram">
     <h2>Circuit Diagram</h2>
-    <p>The ultrasonic sensor measures distance; the Arduino activates LEDs and the buzzer according to distance
-      thresholds.</p>
+    <p>The LCD displays the corresponding letters and numbers, and the Arduino processes the button inputs to trigger the appropriate buzzer signals.</p>
     <img src="braille_tinkercard.jpg" alt="Arduino Braille system"> 
     </section>
 
@@ -198,78 +197,231 @@
     <pre class="line-numbers">
   <button class="copy-btn" onclick="copyCode()">Copy</button>
   <code id="arduinoCode" class="language-cpp">
-// Collision Warning System with Distance Sensor (HC-SR04)
-// Author: Ana Rodrigues
-// Oct 2, 2025
-// Object is farther than 50cm: Green LED lights up
-// Object is closer than 50 cm, but more than 10cm away: Yellow LED lights, buzzer plays 300Hz tone
-// Object is closer than 10cm: Red LED lights up, buzzer plays 500Hz tone
+#include <LiquidCrystal.h>
 
-//LED pins
-const int greenLED = 2;
-const int yellowLED = 3;
-const int redLED = 4;
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
-// Ultrasonic sensor pins
-const int trigPin = 9;
-const int echoPin = 10;
+/* Braille buttons mapped to standard Braille dots:
+ 1 4
+ 2 5
+ 3 6 */
 
-// Passive buzzer pin
-const int buzzer = 11;
+const int buttonPins[6] = {13, 12, 11, 10, 9, 8}; // dots 1–6
+int prevButtonState[6] = {0, 0, 0, 0, 0, 0};
 
+const int redButton    = A4; //Enter/confirm
+const int greenButton  = A3; //Space
+const int blackButton  = A2; //Toggle number/letter mode
+const int squareButton = A0; //Delete
+
+const int buzzer = A5;
+
+//--------
+// BUFFERS: temporary store all the characters typed so far
+//--------
+
+String currentWord = "";
+bool numberMode = false; // false = letter mode, true = number mode
+
+struct BrailleChar {
+  byte pattern;
+  char letter;
+  char number;
+};
+
+//---------------
+//BRAILLE MAPPING
+//---------------
+BrailleChar brailleMap[] = {
+  {B000001, 'a', '1'},
+  {B000011, 'b', '2'},
+  {B000101, 'c', '3'},
+  {B000111, 'd', '4'},
+  {B000110, 'e', '5'},
+  {B001101, 'f', '6'},
+  {B001111, 'g', '7'},
+  {B001110, 'h', '8'},
+  {B000010, 'i', '9'},
+  {B000110, 'j', '0'},
+  {B001001, 'k', '-'},
+  {B001011, 'l', '-'},
+  {B001101, 'm', '-'},
+  {B001111, 'n', '-'},
+  {B001110, 'o', '-'},
+  {B011001, 'p', '-'},
+  {B011011, 'q', '-'},
+  {B011101, 'r', '-'},
+  {B011100, 's', '-'},
+  {B010111, 't', '-'},
+  {B111001, 'u', '-'},
+  {B111011, 'v', '-'},
+  {B101111, 'w', '-'},
+  {B111101, 'x', '-'},
+  {B111111, 'y', '-'},
+  {B111110, 'z', '-'}
+};
+
+int mapSize = sizeof(brailleMap) / sizeof(brailleMap[0]);
+
+//-----
+//SOUND
+//-----
+void beep(int duration){
+  tone(buzzer, 1000, duration);
+  delay(duration + 20);
+}
+
+void doubleBeep(int d1, int d2){
+  beep(d1);
+  delay(100);
+  beep(d2);
+}
+
+void longBeep(){
+  tone(buzzer, 900, 400);
+  delay(450);
+}
+
+void doubleLongBeep(){
+  longBeep();
+  delay(150);
+  longBeep();
+}
+
+//---------------
+//BRAILLE READING
+//---------------
+byte readBraillePattern() {
+  byte pattern = 0;
+
+  for (int i = 0; i < 6; i++) {
+    int val = digitalRead(buttonPins[i]);
+
+    if (val == HIGH)
+      pattern |= (1 << i);
+
+    if (val == HIGH && prevButtonState[i] == LOW) {
+      beep(80);
+      delay(30);
+    }
+    prevButtonState[i] = val;
+  }
+  return pattern;
+}
+ 
+//----------------
+//PATTERN MATCHING
+//----------------
+char findCharacter(byte pattern) {
+  for (int i = 0; i < mapSize; i++) {
+    if (brailleMap[i].pattern == pattern) {
+      return numberMode ? brailleMap[i].number : brailleMap[i].letter;
+    }
+  }
+  return '?';
+}
+
+//-----
+//SETUP
+//-----
 void setup() {
-  pinMode(greenLED, OUTPUT);
-  pinMode(yellowLED, OUTPUT);
-  pinMode(redLED, OUTPUT);
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  Serial.begin(9600);
+  // Braille buttons
+  for (int i = 0; i < 6; i++)
+    pinMode(buttonPins[i], INPUT);
+
+  pinMode(redButton, INPUT);
+  pinMode(greenButton, INPUT);
+  pinMode(blackButton, INPUT);
+  pinMode(squareButton, INPUT);
+
+  pinMode(buzzer, OUTPUT);
+
+  lcd.begin(16, 2);
+  lcd.clear();
+  lcd.print("Braille Input");
+  delay(800);
+  lcd.clear();
 }
 
 void loop() {
-  // Measure distance
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
+  byte pattern = readBraillePattern();
 
-  long duration = pulseIn(echoPin, HIGH);
-  long distance = duration * 0.034 / 2;
+  // Red button = finish current letter
+  if (digitalRead(redButton) == HIGH) {
+    if (pattern > 0) {
+      char c = findCharacter(pattern);
+      currentWord += c;
 
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
+      lcd.clear();
+      lcd.print(currentWord);
+
+      longBeep(); // letter confirm
+    }
+
+    while (digitalRead(redButton) == HIGH);
+    delay(200);
+  }
+
+  // Green button = space
+  if (digitalRead(greenButton) == HIGH) {
+    currentWord += ' ';
+
+    lcd.clear();
+    lcd.print(currentWord);
+
+    beep(100);
+
+    while (digitalRead(greenButton) == HIGH);
+    delay(200);
+  }
   
-  //Error in measurement:
-  if (distance <= 0)
-    return;
+  // Black button = toggle between letter & number mode
+  if (digitalRead(blackButton) == HIGH) {
+    numberMode = !numberMode;
 
-  //Too close:
-  if (distance <= 10) {
-    digitalWrite(greenLED, LOW);
-    digitalWrite(yellowLED, LOW);
-    digitalWrite(redLED, HIGH);
-    tone(buzzer, 500); // Play 500Hz tone
-    return;
+    lcd.clear();
+
+    if (numberMode) {
+      lcd.print("Numbers Mode");
+      doubleBeep(120, 120); // 2 short
+    } else {
+      lcd.print("Letters Mode");
+      longBeep(); // 1 long
+    }
+
+    while (digitalRead(blackButton) == HIGH);
+    delay(300);
+
+    lcd.clear();
+    lcd.print(currentWord);
   }
 
-  //Midrange:
-  if (distance <= 30) {
-    digitalWrite(greenLED, LOW);
-    digitalWrite(yellowLED, HIGH);
-    digitalWrite(redLED, LOW);
-    tone(buzzer, 300); // Play 300Hz tone
-    return;
+  // Red Square =  delete
+  if (digitalRead(squareButton) == HIGH) {
+    delay(250);
+
+    // Long hold = delete whole word
+    if (digitalRead(squareButton) == HIGH) {
+      currentWord = "";
+      lcd.clear();
+      doubleLongBeep();
+    }
+
+    // Short press = delete last character
+    else {
+      if (currentWord.length() > 0) {
+        currentWord.remove(currentWord.length() - 1);
+      }
+
+      lcd.clear();
+      lcd.print(currentWord);
+
+      doubleBeep(100, 100);
+    }
+
+    while (digitalRead(squareButton) == HIGH);
+    delay(200);
   }
-
-  //Normal status:
-  digitalWrite(greenLED, HIGH);
-  digitalWrite(yellowLED, LOW);
-  digitalWrite(redLED, LOW);
-  noTone(buzzer); // stop buzzer
-
-  delay(100);
 }
     </code></pre>
 
