@@ -194,233 +194,238 @@
     <p>The following Arduino code controls the system, lighting LEDs and activating the buzzer based on distance
       readings from the HC-SR04 sensor.</p>
 
-    <pre class="line-numbers">
+  <pre class="line-numbers">
   <button class="copy-btn" onclick="copyCode()">Copy</button>
   <code id="arduinoCode" class="language-cpp">
+
 #include <LiquidCrystal.h>
 
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
-/* Braille buttons mapped to standard Braille dots:
+/* Braille dots layout:
  1 4
  2 5
- 3 6 */
+ 3 6
+*/
 
-const int buttonPins[6] = {13, 12, 11, 10, 9, 8}; // dots 1–6
+// Button pins in dot order
+const int buttonPins[6] = {13, 12, 11, 10, 9, 8}; 
 int prevButtonState[6] = {0, 0, 0, 0, 0, 0};
 
-const int redButton    = A4; //Enter/confirm
-const int greenButton  = A3; //Space
-const int blackButton  = A2; //Toggle number/letter mode
-const int squareButton = A0; //Delete
+// Function buttons
+const int redButton    = A4; // confirm letter
+const int greenButton  = A3; // space
+const int blackButton  = A2; // switch letter/number
+const int squareButton = A0; // delete
 
 const int buzzer = A5;
 
-//--------
-// BUFFERS: temporary store all the characters typed so far
-//--------
-
 String currentWord = "";
-bool numberMode = false; // false = letter mode, true = number mode
+bool numberMode = false;
 
 struct BrailleChar {
-  byte pattern;
+  byte pattern; // 6-bit braille pattern
   char letter;
   char number;
 };
 
-//---------------
-//BRAILLE MAPPING
-//---------------
+/*
+ Bit order used:
+ dot1 = bit0 = 1
+ dot2 = bit1 = 2
+ dot3 = bit2 = 4
+ dot4 = bit3 = 8
+ dot5 = bit4 = 16
+ dot6 = bit5 = 32
+*/
+
+// CORRECT BRAILLE TABLE (Grade 1, A–Z)
 BrailleChar brailleMap[] = {
-  {B000001, 'a', '1'},
-  {B000011, 'b', '2'},
-  {B000101, 'c', '3'},
-  {B000111, 'd', '4'},
-  {B000110, 'e', '5'},
-  {B001101, 'f', '6'},
-  {B001111, 'g', '7'},
-  {B001110, 'h', '8'},
-  {B000010, 'i', '9'},
-  {B000110, 'j', '0'},
-  {B001001, 'k', '-'},
-  {B001011, 'l', '-'},
-  {B001101, 'm', '-'},
-  {B001111, 'n', '-'},
-  {B001110, 'o', '-'},
-  {B011001, 'p', '-'},
-  {B011011, 'q', '-'},
-  {B011101, 'r', '-'},
-  {B011100, 's', '-'},
-  {B010111, 't', '-'},
-  {B111001, 'u', '-'},
-  {B111011, 'v', '-'},
-  {B101111, 'w', '-'},
-  {B111101, 'x', '-'},
-  {B111111, 'y', '-'},
-  {B111110, 'z', '-'}
+  {B000001, 'a', '1'},  // 1
+  {B000011, 'b', '2'},  // 1 2
+  {B000101, 'c', '3'},  // 1 4
+  {B000111, 'd', '4'},  // 1 4 5
+  {B000110, 'e', '5'},  // 1 5
+  {B001101, 'f', '6'},  // 1 2 4
+  {B001111, 'g', '7'},  // 1 2 4 5
+  {B001110, 'h', '8'},  // 1 2 5
+  {B000011, 'i', '9'},  // 2 4
+  {B000111, 'j', '0'},  // 2 4 5
+  {B001001, 'k', '-'},  // 1 3
+  {B001011, 'l', '-'},  // 1 2 3
+  {B001101, 'm', '-'},  // 1 3 4
+  {B001111, 'n', '-'},  // 1 3 4 5
+  {B001110, 'o', '-'},  // 1 3 5
+  {B011001, 'p', '-'},  // 1 2 3 4
+  {B011011, 'q', '-'},  // 1 2 3 4 5
+  {B011101, 'r', '-'},  // 1 2 3 5
+  {B011100, 's', '-'},  // 2 3 4
+  {B010111, 't', '-'},  // 2 3 4 5
+  {B111001, 'u', '-'},  // 1 3 6
+  {B111011, 'v', '-'},  // 1 2 3 6
+  {B101111, 'w', '-'},  // 2 4 5 6
+  {B111101, 'x', '-'},  // 1 3 4 6
+  {B111111, 'y', '-'},  // 1 3 4 5 6
+  {B111110, 'z', '-'}   // 1 3 5 6
 };
 
 int mapSize = sizeof(brailleMap) / sizeof(brailleMap[0]);
 
-//-----
-//SOUND
-//-----
-void beep(int duration){
-  tone(buzzer, 1000, duration);
-  delay(duration + 20);
+// ----------------------
+// BEEPS
+// ----------------------
+void beep(int dur) {
+  tone(buzzer, 1000, dur);
+  delay(dur + 20);
 }
 
-void doubleBeep(int d1, int d2){
-  beep(d1);
+void longBeep() {
+  tone(buzzer, 900, 450);
+  delay(500);
+}
+
+void doubleBeep() {
+  beep(120);
   delay(100);
-  beep(d2);
+  beep(120);
 }
 
-void longBeep(){
-  tone(buzzer, 900, 400);
-  delay(450);
-}
-
-void doubleLongBeep(){
+void doubleLongBeep() {
   longBeep();
   delay(150);
   longBeep();
 }
 
-//---------------
-//BRAILLE READING
-//---------------
+// ----------------------
+// READ BRAILLE INPUT
+// ----------------------
 byte readBraillePattern() {
   byte pattern = 0;
 
   for (int i = 0; i < 6; i++) {
     int val = digitalRead(buttonPins[i]);
 
-    if (val == HIGH)
+    if (val == LOW) {          // using INPUT_PULLUP
       pattern |= (1 << i);
 
-    if (val == HIGH && prevButtonState[i] == LOW) {
-      beep(80);
-      delay(30);
+      if (prevButtonState[i] == HIGH) {
+        beep(80);              // button press detected
+      }
     }
+
     prevButtonState[i] = val;
   }
   return pattern;
 }
- 
-//----------------
-//PATTERN MATCHING
-//----------------
+
+// ----------------------
+// FIND CHARACTER
+// ----------------------
 char findCharacter(byte pattern) {
   for (int i = 0; i < mapSize; i++) {
     if (brailleMap[i].pattern == pattern) {
       return numberMode ? brailleMap[i].number : brailleMap[i].letter;
     }
   }
-  return '?';
+  return '?'; // unknown
 }
 
-//-----
-//SETUP
-//-----
+// ----------------------
+// SETUP
+// ----------------------
 void setup() {
   // Braille buttons
   for (int i = 0; i < 6; i++)
-    pinMode(buttonPins[i], INPUT);
+    pinMode(buttonPins[i], INPUT_PULLUP);
 
-  pinMode(redButton, INPUT);
-  pinMode(greenButton, INPUT);
-  pinMode(blackButton, INPUT);
-  pinMode(squareButton, INPUT);
+  pinMode(redButton,    INPUT_PULLUP);
+  pinMode(greenButton,  INPUT_PULLUP);
+  pinMode(blackButton,  INPUT_PULLUP);
+  pinMode(squareButton, INPUT_PULLUP);
 
   pinMode(buzzer, OUTPUT);
 
   lcd.begin(16, 2);
-  lcd.clear();
-  lcd.print("Braille Input");
-  delay(800);
+  lcd.print("Braille Ready");
+  delay(900);
   lcd.clear();
 }
 
+// ----------------------
+// MAIN LOOP
+// ----------------------
 void loop() {
   byte pattern = readBraillePattern();
 
-  // Red button = finish current letter
-  if (digitalRead(redButton) == HIGH) {
+  // --- RED: confirm a letter ---
+  if (digitalRead(redButton) == LOW) {
     if (pattern > 0) {
       char c = findCharacter(pattern);
       currentWord += c;
 
       lcd.clear();
       lcd.print(currentWord);
-
       longBeep(); // letter confirm
     }
 
-    while (digitalRead(redButton) == HIGH);
-    delay(200);
+    while (digitalRead(redButton) == LOW);
+    delay(150);
   }
 
-  // Green button = space
-  if (digitalRead(greenButton) == HIGH) {
+  // --- GREEN: space ---
+  if (digitalRead(greenButton) == LOW) {
     currentWord += ' ';
 
     lcd.clear();
     lcd.print(currentWord);
-
     beep(100);
 
-    while (digitalRead(greenButton) == HIGH);
-    delay(200);
+    while (digitalRead(greenButton) == LOW);
+    delay(150);
   }
-  
-  // Black button = toggle between letter & number mode
-  if (digitalRead(blackButton) == HIGH) {
+
+  // --- BLACK: toggle number/letter mode ---
+  if (digitalRead(blackButton) == LOW) {
     numberMode = !numberMode;
 
     lcd.clear();
-
     if (numberMode) {
       lcd.print("Numbers Mode");
-      doubleBeep(120, 120); // 2 short
+      doubleBeep();
     } else {
       lcd.print("Letters Mode");
-      longBeep(); // 1 long
+      longBeep();
     }
 
-    while (digitalRead(blackButton) == HIGH);
-    delay(300);
+    while (digitalRead(blackButton) == LOW);
+    delay(250);
 
     lcd.clear();
     lcd.print(currentWord);
   }
 
-  // Red Square =  delete
-  if (digitalRead(squareButton) == HIGH) {
+  // --- SQUARE: delete ---
+  if (digitalRead(squareButton) == LOW) {
     delay(250);
 
-    // Long hold = delete whole word
-    if (digitalRead(squareButton) == HIGH) {
+    // long hold = delete whole word
+    if (digitalRead(squareButton) == LOW) {
       currentWord = "";
       lcd.clear();
       doubleLongBeep();
-    }
-
-    // Short press = delete last character
+    } 
     else {
-      if (currentWord.length() > 0) {
+      // short press = delete last letter
+      if (currentWord.length() > 0)
         currentWord.remove(currentWord.length() - 1);
-      }
 
       lcd.clear();
       lcd.print(currentWord);
-
-      doubleBeep(100, 100);
+      doubleBeep();
     }
 
-    while (digitalRead(squareButton) == HIGH);
-    delay(200);
+    while (digitalRead(squareButton) == LOW);
+    delay(150);
   }
 }
     </code></pre>
@@ -434,8 +439,6 @@ void loop() {
       }
     </script>
   </section>
-
-
 
   <section id="conclusion">
     <h2>Conclusion</h2>
