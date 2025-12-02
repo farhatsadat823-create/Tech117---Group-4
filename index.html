@@ -197,234 +197,178 @@
   <pre class="line-numbers">
   <button class="copy-btn" onclick="copyCode()">Copy</button>
   <code id="arduinoCode" class="language-cpp">
-
 #include <LiquidCrystal.h>
 
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
-/* Braille dots layout:
- 1 4
- 2 5
- 3 6
-*/
+// Braille dot pins (1–6)
+const int braillePins[6] = {13, 12, 11, 10, 9, 8};
 
-// Button pins in dot order
-const int buttonPins[6] = {13, 12, 11, 10, 9, 8}; 
-int prevButtonState[6] = {0, 0, 0, 0, 0, 0};
+// Confirm button
+const int redButton = A4;
 
-// Function buttons
-const int redButton    = A4; // confirm letter
-const int greenButton  = A3; // space
-const int blackButton  = A2; // switch letter/number
-const int squareButton = A0; // delete
-
+// Buzzer
 const int buzzer = A5;
 
+// Previous button state (for beep)
+int prevState[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+
+// The latched braille pattern
+byte currentPattern = 0;
+
 String currentWord = "";
-bool numberMode = false;
 
-struct BrailleChar {
-  byte pattern; // 6-bit braille pattern
+// -------------------------
+// BRAILLE MAP (correct A–Z)
+// -------------------------
+struct BrailleEntry {
+  byte pattern;
   char letter;
-  char number;
 };
 
-/*
- Bit order used:
- dot1 = bit0 = 1
- dot2 = bit1 = 2
- dot3 = bit2 = 4
- dot4 = bit3 = 8
- dot5 = bit4 = 16
- dot6 = bit5 = 32
-*/
+// Bit positions:
+// bit0=dot1, bit1=dot2, bit2=dot3, bit3=dot4, bit4=dot5, bit5=dot6
 
-// CORRECT BRAILLE TABLE (Grade 1, A–Z)
-BrailleChar brailleMap[] = {
-  {B000001, 'a', '1'},  // 1
-  {B000011, 'b', '2'},  // 1 2
-  {B000101, 'c', '3'},  // 1 4
-  {B000111, 'd', '4'},  // 1 4 5
-  {B000110, 'e', '5'},  // 1 5
-  {B001101, 'f', '6'},  // 1 2 4
-  {B001111, 'g', '7'},  // 1 2 4 5
-  {B001110, 'h', '8'},  // 1 2 5
-  {B000011, 'i', '9'},  // 2 4
-  {B000111, 'j', '0'},  // 2 4 5
-  {B001001, 'k', '-'},  // 1 3
-  {B001011, 'l', '-'},  // 1 2 3
-  {B001101, 'm', '-'},  // 1 3 4
-  {B001111, 'n', '-'},  // 1 3 4 5
-  {B001110, 'o', '-'},  // 1 3 5
-  {B011001, 'p', '-'},  // 1 2 3 4
-  {B011011, 'q', '-'},  // 1 2 3 4 5
-  {B011101, 'r', '-'},  // 1 2 3 5
-  {B011100, 's', '-'},  // 2 3 4
-  {B010111, 't', '-'},  // 2 3 4 5
-  {B111001, 'u', '-'},  // 1 3 6
-  {B111011, 'v', '-'},  // 1 2 3 6
-  {B101111, 'w', '-'},  // 2 4 5 6
-  {B111101, 'x', '-'},  // 1 3 4 6
-  {B111111, 'y', '-'},  // 1 3 4 5 6
-  {B111110, 'z', '-'}   // 1 3 5 6
+BrailleEntry brailleMap[] = {
+  {B000001, 'a'}, // 1
+  {B000011, 'b'}, // 1 2
+  {B000101, 'c'}, // 1 4
+  {B001101, 'd'}, // 1 4 5
+  {B001001, 'e'}, // 1 5
+  {B000111, 'f'}, // 1 2 4
+  {B001111, 'g'}, // 1 2 4 5
+  {B001011, 'h'}, // 1 2 5
+  {B000110, 'i'}, // 2 4
+  {B001110, 'j'}, // 2 4 5
+
+  {B000101 | B000100, 'k'}, // 1 3
+  {B000011 | B000100, 'l'}, // 1 2 3
+  {B000101 | B000100, 'm'}, // 1 3 4
+  {B001101 | B000100, 'n'}, // 1 3 4 5
+  {B001001 | B000100, 'o'}, // 1 3 5
+  {B000111 | B000100, 'p'}, // 1 2 3 4
+  {B001111 | B000100, 'q'}, // 1 2 3 4 5
+  {B001011 | B000100, 'r'}, // 1 2 3 5
+  {B000110 | B000100, 's'}, // 2 3 4
+  {B001110 | B000100, 't'}, // 2 3 4 5
+
+  {B000001 | B000100 | B001000, 'u'}, // 1 3 6
+  {B000011 | B000100 | B001000, 'v'}, // 1 2 3 6
+  {B001110 | B001000, 'w'},          // 2 4 5 6
+  {B000101 | B000100 | B001000, 'x'}, // 1 3 4 6
+  {B001101 | B000100 | B001000, 'y'}, // 1 3 4 5 6
+  {B001001 | B000100 | B001000, 'z'}  // 1 3 5 6
 };
 
-int mapSize = sizeof(brailleMap) / sizeof(brailleMap[0]);
+const int mapSize = sizeof(brailleMap) / sizeof(brailleMap[0]);
 
-// ----------------------
+// -------------------------
 // BEEPS
-// ----------------------
-void beep(int dur) {
-  tone(buzzer, 1000, dur);
-  delay(dur + 20);
+// -------------------------
+void beep(int d) {
+  tone(buzzer, 1000, d);
+  delay(d + 20);
 }
 
 void longBeep() {
-  tone(buzzer, 900, 450);
-  delay(500);
+  tone(buzzer, 800, 350);
+  delay(400);
 }
 
-void doubleBeep() {
-  beep(120);
-  delay(100);
-  beep(120);
-}
-
-void doubleLongBeep() {
-  longBeep();
-  delay(150);
-  longBeep();
-}
-
-// ----------------------
-// READ BRAILLE INPUT
-// ----------------------
+// -------------------------
+// READ + LATCH DOT PRESSES
+// -------------------------
 byte readBraillePattern() {
-  byte pattern = 0;
-
   for (int i = 0; i < 6; i++) {
-    int val = digitalRead(buttonPins[i]);
+    int val = digitalRead(braillePins[i]);
 
-    if (val == LOW) {          // using INPUT_PULLUP
-      pattern |= (1 << i);
+    // Pressed (buttons use pullup logic)
+    if (val == LOW) {
+      currentPattern |= (1 << i);   // LATCH the bit
 
-      if (prevButtonState[i] == HIGH) {
-        beep(80);              // button press detected
+      if (prevState[i] == HIGH) {
+        Serial.print("Dot ");
+        Serial.print(i + 1);
+        Serial.println(" pressed");
+        tone(buzzer, 600);
+        delay(100);
+        noTone(buzzer);
       }
     }
 
-    prevButtonState[i] = val;
+    prevState[i] = val;
   }
-  return pattern;
+
+  return currentPattern;
 }
 
-// ----------------------
-// FIND CHARACTER
-// ----------------------
-char findCharacter(byte pattern) {
+// -------------------------
+// FIND LETTER
+// -------------------------
+char findLetter(byte pattern) {
   for (int i = 0; i < mapSize; i++) {
     if (brailleMap[i].pattern == pattern) {
-      return numberMode ? brailleMap[i].number : brailleMap[i].letter;
+      return brailleMap[i].letter;
     }
   }
-  return '?'; // unknown
+  return '?';
 }
 
-// ----------------------
+// -------------------------
 // SETUP
-// ----------------------
+// -------------------------
 void setup() {
-  // Braille buttons
+  Serial.begin(9600);
+
   for (int i = 0; i < 6; i++)
-    pinMode(buttonPins[i], INPUT_PULLUP);
+    pinMode(braillePins[i], INPUT_PULLUP);
 
-  pinMode(redButton,    INPUT_PULLUP);
-  pinMode(greenButton,  INPUT_PULLUP);
-  pinMode(blackButton,  INPUT_PULLUP);
-  pinMode(squareButton, INPUT_PULLUP);
-
+  pinMode(redButton, INPUT_PULLUP);
   pinMode(buzzer, OUTPUT);
 
   lcd.begin(16, 2);
   lcd.print("Braille Ready");
-  delay(900);
+  delay(800);
   lcd.clear();
+  
+  tone(buzzer, 600);
+        delay(100);
+        noTone(buzzer);
 }
 
-// ----------------------
+// -------------------------
 // MAIN LOOP
-// ----------------------
+// -------------------------
 void loop() {
-  byte pattern = readBraillePattern();
 
-  // --- RED: confirm a letter ---
+  // Continuously update latched pattern
+  readBraillePattern();
+
+  // If red confirm button pressed:
   if (digitalRead(redButton) == LOW) {
-    if (pattern > 0) {
-      char c = findCharacter(pattern);
-      currentWord += c;
 
-      lcd.clear();
-      lcd.print(currentWord);
-      longBeep(); // letter confirm
-    }
+    Serial.print("RED pressed, latched pattern: ");
+    Serial.println(currentPattern, BIN);
 
+    char letter = findLetter(currentPattern);
+
+    Serial.print("Confirmed letter: ");
+    Serial.println(letter);
+
+    currentWord += letter;
+
+    lcd.clear();
+    lcd.print(currentWord);
+    longBeep();
+
+    // Reset pattern for next letter
+    currentPattern = 0;
+
+    // Reset states so next dot press will beep
+    for (int i = 0; i < 6; i++) prevState[i] = HIGH;
+
+    // Wait until red button released
     while (digitalRead(redButton) == LOW);
-    delay(150);
-  }
-
-  // --- GREEN: space ---
-  if (digitalRead(greenButton) == LOW) {
-    currentWord += ' ';
-
-    lcd.clear();
-    lcd.print(currentWord);
-    beep(100);
-
-    while (digitalRead(greenButton) == LOW);
-    delay(150);
-  }
-
-  // --- BLACK: toggle number/letter mode ---
-  if (digitalRead(blackButton) == LOW) {
-    numberMode = !numberMode;
-
-    lcd.clear();
-    if (numberMode) {
-      lcd.print("Numbers Mode");
-      doubleBeep();
-    } else {
-      lcd.print("Letters Mode");
-      longBeep();
-    }
-
-    while (digitalRead(blackButton) == LOW);
-    delay(250);
-
-    lcd.clear();
-    lcd.print(currentWord);
-  }
-
-  // --- SQUARE: delete ---
-  if (digitalRead(squareButton) == LOW) {
-    delay(250);
-
-    // long hold = delete whole word
-    if (digitalRead(squareButton) == LOW) {
-      currentWord = "";
-      lcd.clear();
-      doubleLongBeep();
-    } 
-    else {
-      // short press = delete last letter
-      if (currentWord.length() > 0)
-        currentWord.remove(currentWord.length() - 1);
-
-      lcd.clear();
-      lcd.print(currentWord);
-      doubleBeep();
-    }
-
-    while (digitalRead(squareButton) == LOW);
     delay(150);
   }
 }
