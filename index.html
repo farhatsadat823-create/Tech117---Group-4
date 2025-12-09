@@ -15,6 +15,29 @@
   <!-- Includes the stylesheet file styles.css -->
   <link rel="stylesheet" href="styles.css" />
 </head>
+  
+<script>
+// Sparkle generator on scroll
+document.addEventListener("scroll", () => {
+    for (let i = 0; i < 8; i++) {  // number of sparkles per scroll
+        createSparkle();
+    }
+});
+
+function createSparkle() {
+    const sparkle = document.createElement("div");
+    sparkle.classList.add("sparkle");
+
+    // Random position near scroll point
+    sparkle.style.left = (Math.random() * window.innerWidth) + "px";
+    sparkle.style.top = (window.scrollY + (Math.random() * 200)) + "px";
+
+    document.body.appendChild(sparkle);
+
+    // Remove after animation ends
+    setTimeout(() => sparkle.remove(), 1000);
+}
+</script>
 
 <body>
   <!-- Fixed Navigation Menu -->
