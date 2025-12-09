@@ -179,3 +179,31 @@ nav#menu a:hover {
         margin: 4px 0;
     }
 }
+
+/* Sparkle Effect */
+.sparkle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #ffffff, #ffd700, #ff7b00);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.9;
+    animation: sparkle-fade 1s ease-out forwards;
+    box-shadow: 0 0 10px #ffd700, 0 0 15px #ffae00;
+}
+
+@keyframes sparkle-fade {
+    0% {
+        transform: scale(0.4) translateY(0);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2) translateY(-20px);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0.5) translateY(-40px);
+        opacity: 0;
+    }
+}
