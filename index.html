@@ -234,7 +234,6 @@ const int buzzer = A5;
 // Previous button state (for beep)
 int prevState[6] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 
-// The latched braille pattern
 byte currentPattern = 0;
 
 String currentWord = "";
@@ -246,9 +245,6 @@ struct BrailleEntry {
   byte pattern;
   char letter;
 };
-
-// Bit positions:
-// bit0=dot1, bit1=dot2, bit2=dot3, bit3=dot4, bit4=dot5, bit5=dot6
 
 BrailleEntry brailleMap[] = {
   {B000001, 'a'}, // 1
